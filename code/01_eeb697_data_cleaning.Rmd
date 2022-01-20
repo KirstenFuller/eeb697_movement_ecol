@@ -4,27 +4,69 @@ author: "Kirsten Fuller"
 date: "1/19/2022"
 output: html_document
 ---
-
+# SET WORKING DIRECTORY
 ```{r setup, include=FALSE}
+rm( list = ls() ); gc( )
+
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "~/Boise State/classes/2022_spring/eeb697_movement_ecol")
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+# PREP WORKSPACE
+```{r, include = FALSE}
+# load necessary packages
+# define packages
+packages <- c("tidyverse", "dplyr", "tidyr", "gtools", "ggplot2", "lubridate", "reshape2", "plyr", "rgdal", "sp", "sf", "broom", "maptools", "ggpubr", "ggeasy", "raster","prism", "rasterVis", "latticeExtra", "janitor", "unmarked", "MuMIn", "AICcmodavg")
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+# install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
 
-```{r cars}
-summary(cars)
+# load packages
+invisible(lapply(packages, library, character.only = TRUE))
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+# LOAD Data
+```{r}
+pel_dat <- read.csv("data/brown_pelican_data.csv")
+pel_dat_ref_dat <- read.csv("data/brown_pelican_reference_data.csv")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+# CHECK DATA
+```{r}
+# check column names
+colnames(pel_dat)
+
+# remove unnecessary columns and change col names to be more succinct
+pel_dat_sub <- pel_dat %>%
+  dplyr::select(-c(visible, study.name, tag.local.identifier, sensor.type, individual.taxon.canonical.name)) %>% # get rid of unnecessary columns
+  dplyr::rename(animal.id = individual.local.identifier,
+                long = location.long,
+                lat = location.lat)
+
+# explore the reference data a bit. How many males and females are included in the study?
+count(pel_dat_ref_dat$animal.sex)
+```
+
+
+# SPATIAL WORK
+```{r}
+# check if it has a defined coordinate system
+st_crs(pel_dat_sub) # it does not
+
+# the READ_ME file says the data is WGS84, so I will have to define the crs as an object. The EPSG code for that is 4326
+projection_crs = "EPSG:4326"
+
+# then assign the data to that crs
+pel_dat_sub_sf <- sf::st_as_sf(pel_dat_sub, coords = c("long", "lat"),
+                               crs = st_crs(projection_crs))
+
+# create a simple plot just to make sure things are going well
+plot(pel_dat_sub_sf[1])
+```
+

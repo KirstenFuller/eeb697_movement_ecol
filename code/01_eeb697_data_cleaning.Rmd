@@ -14,10 +14,10 @@ knitr::opts_knit$set(root.dir = "~/Boise State/classes/2022_spring/eeb697_moveme
 
 
 # PREP WORKSPACE
-```{r, include = FALSE}
+```{r, include = FALSE, message = FALSE}
 # load necessary packages
 # define packages
-packages <- c("tidyverse", "dplyr", "tidyr", "gtools", "ggplot2", "lubridate", "reshape2", "plyr", "rgdal", "sp", "sf", "broom", "maptools", "ggpubr", "ggeasy", "raster","prism", "rasterVis", "latticeExtra", "janitor", "unmarked", "MuMIn", "AICcmodavg")
+packages <- c("tidyverse", "dplyr", "tidyr", "gtools", "ggplot2", "lubridate", "reshape2", "plyr", "rgdal", "sp", "sf", "maptools", "raster", "amt", "FedData", "tiff", "terra")
 
 # install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -31,9 +31,21 @@ invisible(lapply(packages, library, character.only = TRUE))
 
 
 # LOAD Data
-```{r}
+```{r, message = FALSE}
+# pelican location data
 pel_dat <- read.csv("data/brown_pelican_data.csv")
+
+# pelican reference data
 pel_dat_ref_dat <- read.csv("data/brown_pelican_reference_data.csv")
+
+# load in the landcover data for the gulf of mexico
+gom_shp <- st_read("data/gulf_shp/gulf-of-mexico-protraction-polygons.shp")
+
+# load gulf depth data
+gom_depth_shp <- st_read("data/gulf_depth_shp/w98e78n31s18_isobath_selected_5-4000m.shp") # what a terrible file name
+
+# load marine species diversity data
+spec_div <- raster("data/global_marine_fish.tif")
 ```
 
 
@@ -42,15 +54,28 @@ pel_dat_ref_dat <- read.csv("data/brown_pelican_reference_data.csv")
 # check column names
 colnames(pel_dat)
 
+# determine which animal has the least amount of data
+count(pel_dat$individual.local.identifier) # 3507 has the least amount of points, so this is the animal I want to focus on first.
+
 # remove unnecessary columns and change col names to be more succinct
 pel_dat_sub <- pel_dat %>%
   dplyr::select(-c(visible, study.name, tag.local.identifier, sensor.type, individual.taxon.canonical.name)) %>% # get rid of unnecessary columns
   dplyr::rename(animal.id = individual.local.identifier,
                 long = location.long,
-                lat = location.lat)
+                lat = location.lat) %>%
+  dplyr::filter(animal.id == "3507")
+
+# convert date to correct format using lubridate
+pel_dat_sub$timestamp <- lubridate::ymd_hms(pel_dat_sub$timestamp, tz = "EST")
+
+# check data structure
+str(pel_dat_sub)
 
 # explore the reference data a bit. How many males and females are included in the study?
-count(pel_dat_ref_dat$animal.sex)
+count(pel_dat_ref_dat$animal.sex) # 14 females and 16 males
+
+# make histograms to visualize data and filter out data that is bad fixes
+hist(pel_dat_sub)
 ```
 
 
@@ -58,15 +83,48 @@ count(pel_dat_ref_dat$animal.sex)
 ```{r}
 # check if it has a defined coordinate system
 st_crs(pel_dat_sub) # it does not
+st_crs(gom_shp) # NAD27
+st_crs(gom_depth_shp) # Unknown datum based upon the Clarke 1866 ellipsoid 
+crs(spec_div)
 
-# the READ_ME file says the data is WGS84, so I will have to define the crs as an object. The EPSG code for that is 4326
+# the READ_ME file says the pelican data is WGS84, so I will have to define the crs as an object. The EPSG code for that is 4326
 projection_crs = "EPSG:4326"
 
 # then assign the data to that crs
 pel_dat_sub_sf <- sf::st_as_sf(pel_dat_sub, coords = c("long", "lat"),
                                crs = st_crs(projection_crs))
 
-# create a simple plot just to make sure things are going well
-plot(pel_dat_sub_sf[1])
+# match the pelican data to the gom shapefile
+pel_dat_sub_sf_trans <- pel_dat_sub_sf %>%
+  st_transform(pel_dat_sub_sf, crs = st_crs(gom_shp))
+
+# match the gom depth shape data to the gom shape file
+gom_depth_shp_trans <- st_transform(gom_depth_shp, crs = st_crs(gom_shp))
+
+# reproject the species diversity raster
+spec_div_proj <- project(spec_div, crs(gom_shp))
+
+# plot them all together to make sure they align
+plot(gom_depth_shp_trans[1])
+plot(gom_shp[1], add = T)
+```
+
+
+# DATA PREP
+```{r}
+# subset one animal 
+animal_3501 <- pel_dat_sub_sf %>%
+  filter(animal.id == "3501")
+
+# make a simple plot of their movements
+plot(animal_3501[1])
+
+# remove the first day when it was trapped to remove the behavioral bias influenced by processing the bird
+
+```
+
+
+```{r}
+
 ```
 

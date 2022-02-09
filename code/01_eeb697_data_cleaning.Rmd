@@ -49,33 +49,49 @@ spec_div <- raster("data/global_marine_fish.tif")
 ```
 
 
-# CHECK DATA
+# CHECK TABULAR DATA
 ```{r}
-# check column names
+# PRIMARY DATA:
+# check column names of pelican data
 colnames(pel_dat)
-
-# determine which animal has the least amount of data
-count(pel_dat$individual.local.identifier) # 3507 has the least amount of points, so this is the animal I want to focus on first.
 
 # remove unnecessary columns and change col names to be more succinct
 pel_dat_sub <- pel_dat %>%
-  dplyr::select(-c(visible, study.name, tag.local.identifier, sensor.type, individual.taxon.canonical.name)) %>% # get rid of unnecessary columns
+# get rid of unnecessary columns
+  dplyr::select(-c(visible, study.name, tag.local.identifier, sensor.type, individual.taxon.canonical.name))%>% 
+# rename columns
   dplyr::rename(animal.id = individual.local.identifier,
                 long = location.long,
                 lat = location.lat) %>%
-  dplyr::filter(animal.id == "3507")
+# create time stamp column, year, month, and date columns
+  dplyr::mutate(timestamp = lubridate::ymd_hms(pel_dat$timestamp, tz = "EST"),
+                year = as.numeric(format(pel_dat_sub$timestamp, format = "%Y")),
+                month = as.numeric(format(pel_dat_sub$timestamp, format = "%m")),
+                day = as.numeric(format(pel_dat_sub$timestamp, format = "%d")),
+                week = lubridate::week(pel_dat_sub$timestamp))
 
-# convert date to correct format using lubridate
-pel_dat_sub$timestamp <- lubridate::ymd_hms(pel_dat_sub$timestamp, tz = "EST")
+# create a table to tally up data by year
+count((pel_dat_sub$year)) # 2014 had the most data @ 18,861 points
 
-# check data structure
-str(pel_dat_sub)
+# subset out just that year
+pel_dat_14 <- pel_dat_sub %>%
+  dplyr::filter(year == "2014")
 
+# determine the number of individals included in the study in 2014
+length(unique(pel_dat_14$animal.id)) # 13 individuals
+
+# determine which week has the most animals
+table(pel_dat_14$week, by = pel_dat_14$animal.id) # okay so 26, 27 and 28 look bad
+# 20 and 21 look the best, with all 13 animals having data
+# I'm going to pick 20
+
+pel_dat_14_wk20 <- pel_dat_14 %>%
+  dplyr::filter(week == "20")
+
+
+# REFERENCE DATA:
 # explore the reference data a bit. How many males and females are included in the study?
 count(pel_dat_ref_dat$animal.sex) # 14 females and 16 males
-
-# make histograms to visualize data and filter out data that is bad fixes
-hist(pel_dat_sub)
 ```
 
 

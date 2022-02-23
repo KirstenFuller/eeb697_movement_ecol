@@ -138,14 +138,11 @@ gom_depth_shp_trans <- st_transform(gom_depth_shp, crs = st_crs(gom_shp))
 
 # DEFINING TRACKS
 ```{r}
-# remove the first day when it was trapped to remove the behavioral bias influenced by processing the bird
-
-
 # define the tracks
 pel_tracks <- amt::make_track(pel_dat_join_sub, .x = long, .y = lat, .t = timestamp,
                               animal.id, day, animal.sex,
                               crs = 4326)
-
+# transform the data back to the crs that we want 
 pel_tracks_trans <- amt::transform_coords(pel_tracks, pel_crs)
 
 # summarize the data
@@ -154,9 +151,7 @@ amt::summarize_sampling_rate(pel_tracks)
 # turn into a tibble list by grouping and nesting by individual animals:
 pel_tracks_nested <- pel_tracks_trans %>%  amt::nest(data = -"animal.id")
 
-#view
-pel_tracks_nested
-
+# plot each individual's track
 for( i in 1:dim(pel_tracks_nested)[1]){
   a <- as_sf_points(pel_tracks_nested$data[[i]] ) %>% 
     ggplot(.) + theme_bw(base_size = 17) +

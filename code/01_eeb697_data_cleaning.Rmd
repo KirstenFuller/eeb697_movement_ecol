@@ -45,7 +45,7 @@ gom_shp <- st_read("data/gulf_shp/gulf-of-mexico-protraction-polygons.shp")
 gom_depth_shp <- st_read("data/gulf_depth_shp/w98e78n31s18_isobath_selected_5-4000m.shp") # what a terrible file name
 
 # load marine species diversity data
-spec_div <- raster("data/global_marine_fish.tif")
+spec_div <- terra::rast("data/global_marine_fish.tif")
 ```
 
 
@@ -62,10 +62,14 @@ pel_dat_sub <- pel_dat %>%
 # rename columns
   dplyr::rename(animal.id = individual.local.identifier,
                 long = location.long,
-                lat = location.lat) %>%
+                lat = location.lat)
+
 # create time stamp column, year, month, and date columns
-  dplyr::mutate(timestamp = lubridate::ymd_hms(pel_dat$timestamp, tz = "EST"),
-                year = as.numeric(format(pel_dat_sub$timestamp, format = "%Y")),
+pel_dat_sub <- pel_dat_sub %>%
+  dplyr::mutate(timestamp = lubridate::ymd_hms(pel_dat$timestamp, tz = "EST"))
+
+pel_dat_sub <- pel_dat_sub %>%
+  dplyr::mutate(year = as.numeric(format(pel_dat_sub$timestamp, format = "%Y")),
                 month = as.numeric(format(pel_dat_sub$timestamp, format = "%m")),
                 day = as.numeric(format(pel_dat_sub$timestamp, format = "%d")),
                 week = lubridate::week(pel_dat_sub$timestamp))
@@ -92,51 +96,75 @@ pel_dat_14_wk20 <- pel_dat_14 %>%
 # REFERENCE DATA:
 # explore the reference data a bit. How many males and females are included in the study?
 count(pel_dat_ref_dat$animal.sex) # 14 females and 16 males
+
+# join the reference data to the week 20 daya
+pel_dat_join <- left_join(pel_dat_14_wk20, pel_dat_ref_dat, by = "animal.id") 
+
+# remove unnecessary columns
+pel_dat_join_sub <- pel_dat_join %>%
+  dplyr::select(-c(animal.taxon, deploy.on.date, deploy.off.date, animal.life.stage, animal.reproductive.condition, animal.ring.id, attachment.type, deployment.id, manipulation.type, study.site, tag.manufacturer.name, tag.mass, tag.readout.method, tag.id, duty.cycle))
 ```
 
 
-# SPATIAL WORK
+# SPATIAL DEFINING
 ```{r}
 # check if it has a defined coordinate system
-st_crs(pel_dat_sub) # it does not
+st_crs(pel_dat_join_sub) # it does not, but I know it should be WGS84 from the reference file
 st_crs(gom_shp) # NAD27
 st_crs(gom_depth_shp) # Unknown datum based upon the Clarke 1866 ellipsoid 
 crs(spec_div)
 
 # the READ_ME file says the pelican data is WGS84, so I will have to define the crs as an object. The EPSG code for that is 4326
-projection_crs = "EPSG:4326"
+pel_crs = "EPSG:4326"
 
 # then assign the data to that crs
-pel_dat_sub_sf <- sf::st_as_sf(pel_dat_sub, coords = c("long", "lat"),
-                               crs = st_crs(projection_crs))
+pel_dat_sf <- sf::st_as_sf(pel_dat_join_sub, coords = c("long", "lat"),
+                           crs = st_crs(pel_crs))
 
-# match the pelican data to the gom shapefile
-pel_dat_sub_sf_trans <- pel_dat_sub_sf %>%
-  st_transform(pel_dat_sub_sf, crs = st_crs(gom_shp))
+# COME BACK TO HERE TO GET PREDICTORS:
+# match the pelican data to the species diversity data 
+pel_dat_sf_trans <- pel_dat_sf %>%
+  st_transform(pel_dat_sf, crs = crs(spec_div))
 
+# extract data from raster
+
+
+# CONTINUE TO TRANSFORM SHPFILES
 # match the gom depth shape data to the gom shape file
 gom_depth_shp_trans <- st_transform(gom_depth_shp, crs = st_crs(gom_shp))
 
-# reproject the species diversity raster
-spec_div_proj <- project(spec_div, crs(gom_shp))
-
-# plot them all together to make sure they align
-plot(gom_depth_shp_trans[1])
-plot(gom_shp[1], add = T)
 ```
 
 
-# DATA PREP
+# DEFINING TRACKS
 ```{r}
-# subset one animal 
-animal_3501 <- pel_dat_sub_sf %>%
-  filter(animal.id == "3501")
-
-# make a simple plot of their movements
-plot(animal_3501[1])
-
 # remove the first day when it was trapped to remove the behavioral bias influenced by processing the bird
 
+
+# define the tracks
+pel_tracks <- amt::make_track(pel_dat_join_sub, .x = long, .y = lat, .t = timestamp,
+                              animal.id, day, animal.sex,
+                              crs = 4326)
+
+pel_tracks_trans <- amt::transform_coords(pel_tracks, pel_crs)
+
+# summarize the data
+amt::summarize_sampling_rate(pel_tracks)
+
+# turn into a tibble list by grouping and nesting by individual animals:
+pel_tracks_nested <- pel_tracks_trans %>%  amt::nest(data = -"animal.id")
+
+#view
+pel_tracks_nested
+
+for( i in 1:dim(pel_tracks_nested)[1]){
+  a <- as_sf_points(pel_tracks_nested$data[[i]] ) %>% 
+    ggplot(.) + theme_bw(base_size = 17) +
+    labs( title = paste0('individual =', pel_tracks_nested$animal.id[i]) ) +
+#    geom_sf(data = NCA_Shape, inherit.aes = FALSE ) +
+     geom_sf() 
+  print(a)
+} 
 ```
 
 

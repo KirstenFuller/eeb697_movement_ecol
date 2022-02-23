@@ -131,7 +131,9 @@ pel_dat_sf_trans <- pel_dat_sf %>%
 
 # CONTINUE TO TRANSFORM SHPFILES
 # match the gom depth shape data to the gom shape file
-gom_depth_shp_trans <- st_transform(gom_depth_shp, crs = st_crs(gom_shp))
+gom_shp_trans <- st_transform(gom_shp, crs = st_crs(pel_crs))
+
+gom_depth_shp_trans <- st_transform(gom_depth_shp, crs = st_crs(pel_crs))
 
 ```
 
@@ -154,10 +156,10 @@ pel_tracks_nested <- pel_tracks_trans %>%  amt::nest(data = -"animal.id")
 # plot each individual's track
 for( i in 1:dim(pel_tracks_nested)[1]){
   a <- as_sf_points(pel_tracks_nested$data[[i]] ) %>% 
-    ggplot(.) + theme_bw(base_size = 17) +
+    ggplot(.) + theme_bw(base_size = 12) +
     labs( title = paste0('individual =', pel_tracks_nested$animal.id[i]) ) +
-#    geom_sf(data = NCA_Shape, inherit.aes = FALSE ) +
-     geom_sf() 
+    geom_sf(data = gom_shp_trans, inherit.aes = FALSE ) +
+    geom_sf() 
   print(a)
 } 
 ```

@@ -4,7 +4,11 @@ author: "Kirsten Fuller"
 date: "1/19/2022"
 output: html_document
 ---
-# SET WORKING DIRECTORY
+# Progress Report
+
+For my term project I will be exploring brown pelican movement data to answer the question, are there individual differences in time spent over land vs. time spent over water?
+
+## SET WORKING DIRECTORY
 ```{r setup, include=FALSE}
 rm( list = ls() ); gc( )
 
@@ -13,7 +17,7 @@ knitr::opts_knit$set(root.dir = "~/Boise State/classes/2022_spring/eeb697_moveme
 ```
 
 
-# PREP WORKSPACE
+## PREP WORKSPACE
 ```{r, include = FALSE, message = FALSE}
 # load necessary packages
 # define packages
@@ -29,8 +33,9 @@ if (any(installed_packages == FALSE)) {
 invisible(lapply(packages, library, character.only = TRUE))
 ```
 
+Data was acquired from various sources for this analysis. The brown pelican data was publically available on Movebank.org (Geary B, Walter ST, Leberg PL, Karubian J (2018) Condition-dependent foraging strategies in a coastal seabird: evidence for the rich get richer hypothesis. Behavioral Ecology. doi:10.1093/beheco/ary173). 
 
-# LOAD Data
+## LOAD Data
 ```{r, message = FALSE}
 # pelican location data
 pel_dat <- read.csv("data/brown_pelican_data.csv")
@@ -49,7 +54,7 @@ spec_div <- terra::rast("data/global_marine_fish.tif")
 ```
 
 
-# CHECK TABULAR DATA
+## CLEAN DATA
 ```{r}
 # PRIMARY DATA:
 # check column names of pelican data
@@ -106,7 +111,7 @@ pel_dat_join_sub <- pel_dat_join %>%
 ```
 
 
-# SPATIAL DEFINING
+## SPATIAL DEFINING
 ```{r}
 # check if it has a defined coordinate system
 st_crs(pel_dat_join_sub) # it does not, but I know it should be WGS84 from the reference file
@@ -114,6 +119,8 @@ st_crs(gom_shp) # NAD27
 st_crs(gom_depth_shp) # Unknown datum based upon the Clarke 1866 ellipsoid 
 crs(spec_div)
 
+
+# DEFINE PELICAN CRS
 # the READ_ME file says the pelican data is WGS84, so I will have to define the crs as an object. The EPSG code for that is 4326
 pel_crs = "EPSG:4326"
 
@@ -121,13 +128,21 @@ pel_crs = "EPSG:4326"
 pel_dat_sf <- sf::st_as_sf(pel_dat_join_sub, coords = c("long", "lat"),
                            crs = st_crs(pel_crs))
 
-# COME BACK TO HERE TO GET PREDICTOR DATA:
+# EXTRACT PREDICTOR DATA
+########################
 # extract data from raster
+# 1. convert pelican data to crs of raster
+
+# 2. extract predictor data from raster
+
+# 3. convert pelican data back to original crs (pel_crs)
 
 
-# CONTINUE TO TRANSFORM SHPFILES
+# TRANSFORM SHAPEFILES
+######################
+# GULF OF MEXICO BOUNDARY:
 # match the crs of the gulf of mexico shapefile to the crs of the pelican data
-gom_shp_trans <- st_transform(gom_shp, crs = st_crs(pel_crs))
+gom_shp_trans <- st_transform(gom_shp, crs = st_crs(pel_crs)) # NOTE: this shapefile is just for plotting purposess
 
 # make sure the crs of the pelican data and the gulf of mexico data match
 st_crs(pel_dat_sf) == st_crs(gom_shp_trans)
@@ -136,13 +151,19 @@ st_crs(pel_dat_sf) == st_crs(gom_shp_trans)
 gom_shp_trans_crop <- st_crop(gom_shp_trans, st_bbox(pel_dat_sf))
 
 
+# GULF OF MEXICO DEPTH:
 # match the gom depth shape data to the gom shape file
 gom_depth_shp_trans <- st_transform(gom_depth_shp, crs = st_crs(pel_crs))
 
+# check out the depth data by plotting it
+plot(gom_depth_shp_trans)
+
+# spatial join gulf of mexico depth to point data
+gom_pel_join <- st_join(pel_dat_sf, gom_depth_shp_trans)
 ```
 
 
-# DEFINING TRACKS
+## DEFINING TRACKS
 ```{r}
 # define the tracks
 pel_tracks <- amt::make_track(pel_dat_join_sub, .x = long, .y = lat, .t = timestamp,
@@ -156,7 +177,11 @@ pel_tracks <- amt::make_track(pel_dat_join_sub, .x = long, .y = lat, .t = timest
 amt::summarize_sampling_rate(pel_tracks)
 
 # turn into a tibble list by grouping and nesting by individual animals:
-pel_tracks_nested <- pel_tracks_trans %>%  amt::nest(data = -"animal.id")
+pel_tracks_nested <- pel_tracks %>%  amt::nest(data = -"animal.id")
+
+# plot all of the tracks together
+ggplot() +
+  geom_sf(data = )
 
 # plot each individual's track
 for( i in 1:dim(pel_tracks_nested)[1]){

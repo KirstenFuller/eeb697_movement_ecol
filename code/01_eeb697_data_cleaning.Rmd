@@ -13,7 +13,7 @@ For my term project I will be exploring brown pelican movement data to answer th
 rm( list = ls() ); gc( )
 
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = "~/Boise State/classes/2022_spring/eeb697_movement_ecol")
+knitr::opts_knit$set(root.dir = "~/Documents/Boise_State/classes/eeb697_movement_ecol")
 ```
 
 
@@ -33,7 +33,7 @@ if (any(installed_packages == FALSE)) {
 invisible(lapply(packages, library, character.only = TRUE))
 ```
 
-Data was acquired from various sources for this analysis. The brown pelican data was publically available on Movebank.org (Geary B, Walter ST, Leberg PL, Karubian J (2018) Condition-dependent foraging strategies in a coastal seabird: evidence for the rich get richer hypothesis. Behavioral Ecology. doi:10.1093/beheco/ary173). 
+Data was acquired from various sources for this analysis. The brown pelican data was publicly available on Movebank.org (Geary B, Walter ST, Leberg PL, Karubian J (2018) Condition-dependent foraging strategies in a coastal seabird: evidence for the rich get richer hypothesis. Behavioral Ecology. doi:10.1093/beheco/ary173). 
 
 ## LOAD Data
 ```{r, message = FALSE}
@@ -53,6 +53,7 @@ gom_depth_shp <- st_read("data/gulf_depth_shp/w98e78n31s18_isobath_selected_5-40
 spec_div <- terra::rast("data/global_marine_fish.tif")
 ```
 
+Cleaning the data included exploring the data, removing unnecessary columns, defining the timestamps in the proper time zone, and joining tabular data together to make a data base for analysis.
 
 ## CLEAN DATA
 ```{r}
@@ -110,6 +111,7 @@ pel_dat_join_sub <- pel_dat_join %>%
   dplyr::select(-c(animal.taxon, deploy.on.date, deploy.off.date, animal.life.stage, animal.reproductive.condition, animal.ring.id, attachment.type, deployment.id, manipulation.type, study.site, tag.manufacturer.name, tag.mass, tag.readout.method, tag.id, duty.cycle))
 ```
 
+Next came the spatial defining of the data. 
 
 ## SPATIAL DEFINING
 ```{r}
@@ -180,8 +182,8 @@ amt::summarize_sampling_rate(pel_tracks)
 pel_tracks_nested <- pel_tracks %>%  amt::nest(data = -"animal.id")
 
 # plot all of the tracks together
-ggplot() +
-  geom_sf(data = )
+# ggplot() +
+#   geom_sf(data = )
 
 # plot each individual's track
 for( i in 1:dim(pel_tracks_nested)[1]){
@@ -192,6 +194,16 @@ for( i in 1:dim(pel_tracks_nested)[1]){
     geom_sf() 
   print(a)
 } 
+
+# calculate step lengths
+pel_tracks_test <- pel_tracks %>%
+  dplyr::mutate(sl = step_lengths(.))
+
+# plot step lengths
+pel_tracks_test %>% 
+  select(animal.id, sl) %>% 
+  ggplot(aes(sl, fill = factor(animal.id))) + 
+  geom_density(alpha = 0.4)
 ```
 
 

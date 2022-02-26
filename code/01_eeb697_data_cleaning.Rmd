@@ -2,13 +2,15 @@
 title: "Untitled"
 author: "Kirsten Fuller"
 date: "1/19/2022"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 # Progress Report
 
-For my term project I will be exploring brown pelican movement data to answer the question, are there individual differences in time spent over land vs. time spent over water?
+For my term project I will be exploring brown pelican movement data to answer the question: Are there individual differences in time spent over land vs. time spent over water for brown pelicans in the Gulf of Mexico?
 
-## SET WORKING DIRECTORY
+## Set Working Directory
 ```{r setup, include=FALSE}
 rm( list = ls() ); gc( )
 
@@ -16,8 +18,7 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = "~/Documents/Boise_State/classes/eeb697_movement_ecol")
 ```
 
-
-## PREP WORKSPACE
+## Prepare Workspace
 ```{r, include = FALSE, message = FALSE}
 # load necessary packages
 # define packages
@@ -35,7 +36,7 @@ invisible(lapply(packages, library, character.only = TRUE))
 
 Data was acquired from various sources for this analysis. The brown pelican data was publicly available on Movebank.org (Geary B, Walter ST, Leberg PL, Karubian J (2018) Condition-dependent foraging strategies in a coastal seabird: evidence for the rich get richer hypothesis. Behavioral Ecology. doi:10.1093/beheco/ary173). 
 
-## LOAD Data
+## Load Data
 ```{r, message = FALSE}
 # pelican location data
 pel_dat <- read.csv("data/brown_pelican_data.csv")
@@ -53,9 +54,9 @@ gom_depth_shp <- st_read("data/gulf_depth_shp/w98e78n31s18_isobath_selected_5-40
 spec_div <- terra::rast("data/global_marine_fish.tif")
 ```
 
-Cleaning the data included exploring the data, removing unnecessary columns, defining the timestamps in the proper time zone, and joining tabular data together to make a data base for analysis.
+Cleaning the data included exploring the data, removing unnecessary columns, defining the timestamps in the proper format and time zone, and joining tabular data together to make a data base for analysis.
 
-## CLEAN DATA
+## General Data Cleaning
 ```{r}
 # PRIMARY DATA:
 # check column names of pelican data
@@ -98,12 +99,19 @@ table(pel_dat_14$week, by = pel_dat_14$animal.id) # okay so 26, 27 and 28 look b
 pel_dat_14_wk20 <- pel_dat_14 %>%
   dplyr::filter(week == "20")
 
+```
 
+I assessed the amount of data I had and over what time frame. 2014 had the most data at 18,861 points, so I filtered the data to that year. I then looked at the number of individuals in 2014 (there were 13 included in the study that year), and assessed which week of the study in 2014 included the most individuals. Weeks 20 and 21 looked about the same with 13 individuals included in both of them. Week 20 was ultimately selected for having slightly more data.
+
+```{r}
 # REFERENCE DATA:
-# explore the reference data a bit. How many males and females are included in the study?
+# explore the reference data a bit. 
+colnames(pel_dat_ref_dat)
+
+# How many males and females are included in the study?
 count(pel_dat_ref_dat$animal.sex) # 14 females and 16 males
 
-# join the reference data to the week 20 daya
+# join the reference data to the week 20 data
 pel_dat_join <- left_join(pel_dat_14_wk20, pel_dat_ref_dat, by = "animal.id") 
 
 # remove unnecessary columns
@@ -113,7 +121,7 @@ pel_dat_join_sub <- pel_dat_join %>%
 
 Next came the spatial defining of the data. 
 
-## SPATIAL DEFINING
+## Spatial Defining
 ```{r}
 # check if it has a defined coordinate system
 st_crs(pel_dat_join_sub) # it does not, but I know it should be WGS84 from the reference file
@@ -165,25 +173,27 @@ gom_pel_join <- st_join(pel_dat_sf, gom_depth_shp_trans)
 ```
 
 
-## DEFINING TRACKS
+## Defining Tracks and Exploring Data
 ```{r}
 # define the tracks
 pel_tracks <- amt::make_track(pel_dat_join_sub, .x = long, .y = lat, .t = timestamp,
                               animal.id, day, animal.sex,
                               crs = 4326)
 
-# transform the data back to the crs that we want 
-# pel_tracks_trans <- amt::transform_coords(pel_tracks, pel_crs) # why do we need this step? They're already in crs 4326
+# turn data into to an sf object for ggplotting purposes
+pel_tracks_sf <- as_sf_points(pel_tracks)
+
+# plot all of the tracks together on top of the gulf shapefile
+ggplot() +   
+  geom_sf(data = gom_shp_trans_crop, inherit.aes = FALSE ) +
+  geom_sf(data = pel_tracks_sf, aes(col = as.factor(animal.id))) +
+  theme(legend.position="none")
 
 # summarize the data
 amt::summarize_sampling_rate(pel_tracks)
 
 # turn into a tibble list by grouping and nesting by individual animals:
 pel_tracks_nested <- pel_tracks %>%  amt::nest(data = -"animal.id")
-
-# plot all of the tracks together
-# ggplot() +
-#   geom_sf(data = )
 
 # plot each individual's track
 for( i in 1:dim(pel_tracks_nested)[1]){
@@ -197,16 +207,32 @@ for( i in 1:dim(pel_tracks_nested)[1]){
 
 # calculate step lengths
 pel_tracks_test <- pel_tracks %>%
-  dplyr::mutate(sl = step_lengths(.))
+  dplyr::mutate(sl = step_lengths(.)) %>%
+  dplyr::mutate(direction_p = direction_rel(.))
 
 # plot step lengths
 pel_tracks_test %>% 
   select(animal.id, sl) %>% 
   ggplot(aes(sl, fill = factor(animal.id))) + 
   geom_density(alpha = 0.4)
+
+
+# NOT FUNCTIONING YET, COME BACK TO THIS
+# check autocorrelation in step length for each individual
+# for( i in 1:dim(pel_tracks_test)[1] ){
+  # extract individual ids
+#  idd <- pel_tracks_test$animal.id[i]
+  # use tibbles we calculated in steps
+#  x <- pull(pel_tracks_test[["sl"]][[i]], direction_p)
+  # remove missing data
+#  x <- x[!is.na(x)]
+  # calculate autocorrelation function:
+#  acf( x, lag.max = 300,
+ #      main = paste0( "individual = ", idd ) )
+#}
 ```
 
-
+## Data Analysis
 ```{r}
 
 ```

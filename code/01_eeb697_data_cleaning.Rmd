@@ -139,8 +139,6 @@ pel_dat_sf <- sf::st_as_sf(pel_dat_join_sub, coords = c("long", "lat"),
                            crs = st_crs(pel_crs))
 
 # EXTRACT PREDICTOR DATA
-########################
-# extract data from raster
 # 1. convert pelican data to crs of raster
 
 # 2. extract predictor data from raster
@@ -149,8 +147,7 @@ pel_dat_sf <- sf::st_as_sf(pel_dat_join_sub, coords = c("long", "lat"),
 
 
 # TRANSFORM SHAPEFILES
-######################
-# GULF OF MEXICO BOUNDARY:
+# GULF OF MEXICO:
 # match the crs of the gulf of mexico shapefile to the crs of the pelican data
 gom_shp_trans <- st_transform(gom_shp, crs = st_crs(pel_crs)) # NOTE: this shapefile is just for plotting purposess
 
@@ -232,8 +229,9 @@ pel_tracks_test %>%
 #}
 ```
 
-## Data Analysis
+## Save Relevant Objects
 ```{r}
-
+#save workspace in case we need to make changes
+save.image( "TracksWorkspace.RData" )
 ```
 

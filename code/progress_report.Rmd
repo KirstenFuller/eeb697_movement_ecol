@@ -1,5 +1,11 @@
 ---
 title: "Untitled"
+output: html_document
+date: '2022-02-26'
+---
+
+---
+title: "Untitled"
 author: "Kirsten Fuller"
 date: "1/19/2022"
 output:
@@ -250,10 +256,9 @@ pel_tracks_test %>%
 #}
 ```
 
-## Save Relevant Objects
-```{r}
-#save workspace in case we need to make changes
-save.image( "TracksWorkspace.RData" )
-```
 
+# Data Analysis
+```{r}
+
+```
 

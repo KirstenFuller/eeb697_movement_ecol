@@ -45,9 +45,6 @@ pel_dat_ref_dat <- read.csv("data/brown_pelican_reference_data.csv")
 # load in the landcover data for the gulf of mexico
 gom_shp <- st_read("data/gulf_shp/gulf-of-mexico-protraction-polygons.shp")
 
-# load gulf depth data
-gom_depth_shp <- st_read("data/gulf_depth_shp/w98e78n31s18_isobath_selected_5-4000m.shp") # what a terrible file name
-
 # load marine species diversity data
 spec_div <- terra::rast("data/global_marine_fish.tif")
 ```
@@ -101,8 +98,7 @@ pel_dat_14_wk20 <- pel_dat_14 %>%
 I assessed the amount of data I had and over what time frame. 2014 had the most data at 18,861 points, so I filtered the data to that year. I then looked at the number of individuals in 2014 (there were 13 included in the study that year), and assessed which week of the study in 2014 included the most individuals. Weeks 20 and 21 looked about the same with 13 individuals included in both of them. Week 20 was ultimately selected for having slightly more data.
 
 ```{r}
-# REFERENCE DATA:
-# explore the reference data a bit. 
+# pelican reference data:
 colnames(pel_dat_ref_dat)
 
 # select only the columns of interest
@@ -121,29 +117,19 @@ Next came the spatial defining of the data.
 ## Spatial Defining
 ```{r}
 # check if it has a defined coordinate system
-st_crs(pel_dat_join_sub) # it does not, but I know it should be WGS84 from the reference file
+st_crs(pel_dat_join_sub) # currently NA, but I know it should be WGS84 from the reference txt
 st_crs(gom_shp) # NAD27
-st_crs(gom_depth_shp) # Unknown datum based upon the Clarke 1866 ellipsoid 
-crs(spec_div)
+st_crs(spec_div) # World_Eckert_IV 
 
 # define the coordinate reference system of the pelican data
-# the READ_ME file says the pelican data is WGS84, so I will have to define the crs as an object. The EPSG code for that is 4326
+# the READ_ME file says the pelican data is WGS84, so I will have to define the crs as an object.The EPSG code for that is 4326
 pel_crs = "EPSG:4326"
 
-# then assign the data to that crs
+# then assign the pelican data to that crs
 pel_dat_sf <- sf::st_as_sf(pel_dat_join_sub, coords = c("long", "lat"),
                            crs = st_crs(pel_crs))
 
-# extract predictor data from the rasters
-# 1. convert pelican data to crs of raster
 
-
-# 2. extract predictor data from raster
-
-# 3. convert pelican data back to original crs (pel_crs)
-
-
-# transform shapefiles 
 # Gulf of Mexico land/gulf boundary:
 # the goal here is to 
   # 1. spatially align the gulf shp with the pelican data
@@ -165,17 +151,17 @@ pel_dat_sf <- st_join(pel_dat_sf, gom_shp_trans, left = TRUE)
 # replace NA values in the PROT_NAME column with land and replace values that aren't na with gulf
 pel_dat_sf$PROT_NAME <- ifelse(is.na(pel_dat_sf$PROT_NAME) == TRUE, "land", "gulf")
 
+# rename the PROT_NAME column to land_type
+pel_dat_sf <- pel_dat_sf %>%
+  dplyr::rename(land_type = PROT_NAME)
 
 
-# GULF OF MEXICO DEPTH:
-# match the gom depth shape data to the gom shape file
-gom_depth_shp_trans <- st_transform(gom_depth_shp, crs = st_crs(pel_crs))
+# species raster:
+# the goal here is to extract predictor data from the raster at the spatial points in the pelican dataframe. Here is the plan for that.
+  # 1. convert pelican data to crs of raster
+  # 2. extract predictor data from raster
+  # 3. convert pelican data back to original crs (pel_crs)
 
-# check out the depth data by plotting it
-plot(gom_depth_shp_trans)
-
-# spatial join gulf of mexico depth to point data
-gom_pel_join <- st_join(pel_dat_sf, gom_depth_shp_trans)
 ```
 
 

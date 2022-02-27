@@ -74,7 +74,9 @@ pel_dat_sub <- pel_dat_sub %>%
   dplyr::mutate(year = as.numeric(format(pel_dat_sub$timestamp, format = "%Y")),
                 month = as.numeric(format(pel_dat_sub$timestamp, format = "%m")),
                 day = as.numeric(format(pel_dat_sub$timestamp, format = "%d")),
-                week = lubridate::week(pel_dat_sub$timestamp))
+                week = lubridate::week(pel_dat_sub$timestamp),
+                ID = row_number()) %>%
+  dplyr::select(-event.id)
 
 # create a table to tally up data by year
 count((pel_dat_sub$year)) # 2014 had the most data @ 18,861 points
@@ -157,11 +159,32 @@ pel_dat_sf <- pel_dat_sf %>%
 
 
 # species raster:
-# the goal here is to extract predictor data from the raster at the spatial points in the pelican dataframe. Here is the plan for that.
+# the goal here is to extract predictor data from the raster at the spatial points in the pelican dataframe. When possible, it is better to convert sf data to the crs of a raster, rather than transforming a raster to match the crs of a sf object. Here is the plan for that.
   # 1. convert pelican data to crs of raster
   # 2. extract predictor data from raster
   # 3. convert pelican data back to original crs (pel_crs)
 
+# define the crs of the raster into an object
+rast_crs <- st_crs(spec_div) 
+
+# transform pelican data to species diversity raster
+pel_dat_sf_trans <- pel_dat_sf %>%
+  st_transform(pel_dat_sf, crs = rast_crs) 
+
+# this asks, does pelican crs equal the species crs?
+st_crs(pel_dat_sf_trans) == st_crs(spec_div) 
+
+# check data classes. Species div is a spatRaster, pelican data is in sf
+class(spec_div); class(pel_dat_sf_trans) 
+
+# convert pelican data to a spat vector
+pel_spatvect <- vect(pel_dat_sf_trans); class(pel_spatvect) 
+
+# extract data from raster
+rast_data_vect <- terra::extract(spec_div, pel_spatvect, drop = FALSE) 
+
+# join that data vector back to the original pelican data
+pel_dat_sf <- left_join(pel_dat_sf, rast_data_vect)
 ```
 
 

@@ -126,8 +126,7 @@ st_crs(gom_shp) # NAD27
 st_crs(gom_depth_shp) # Unknown datum based upon the Clarke 1866 ellipsoid 
 crs(spec_div)
 
-
-# DEFINE PELICAN CRS
+# define the coordinate reference system of the pelican data
 # the READ_ME file says the pelican data is WGS84, so I will have to define the crs as an object. The EPSG code for that is 4326
 pel_crs = "EPSG:4326"
 
@@ -135,24 +134,37 @@ pel_crs = "EPSG:4326"
 pel_dat_sf <- sf::st_as_sf(pel_dat_join_sub, coords = c("long", "lat"),
                            crs = st_crs(pel_crs))
 
-# EXTRACT PREDICTOR DATA
+# extract predictor data from the rasters
 # 1. convert pelican data to crs of raster
+
 
 # 2. extract predictor data from raster
 
 # 3. convert pelican data back to original crs (pel_crs)
 
 
-# TRANSFORM SHAPEFILES
-# GULF OF MEXICO:
+# transform shapefiles 
+# Gulf of Mexico land/gulf boundary:
+# the goal here is to 
+  # 1. spatially align the gulf shp with the pelican data
+  # 2. spatially join them and use mutate to make a column that assigns the data to either within gulf of not (NA)
+
 # match the crs of the gulf of mexico shapefile to the crs of the pelican data
-gom_shp_trans <- st_transform(gom_shp, crs = st_crs(pel_crs)) # NOTE: this shapefile is just for plotting purposess
+gom_shp_trans <- st_transform(gom_shp, crs = st_crs(pel_crs)) %>%
+  dplyr::select(PROT_NAME, geometry) # select only the columns of interest
 
 # make sure the crs of the pelican data and the gulf of mexico data match
 st_crs(pel_dat_sf) == st_crs(gom_shp_trans)
 
 # crop the gulf shape file to the extent of the pelican data
-gom_shp_trans_crop <- st_crop(gom_shp_trans, st_bbox(pel_dat_sf))
+gom_shp_trans_crop <- st_crop(gom_shp_trans, st_bbox(pel_dat_sf)) # note this is just for plotting purposes
+
+# spatial join
+pel_dat_sf <- st_join(pel_dat_sf, gom_shp_trans, left = TRUE)
+
+# replace NA values in the PROT_NAME column with land and replace values that aren't na with gulf
+pel_dat_sf$PROT_NAME <- ifelse(is.na(pel_dat_sf$PROT_NAME) == TRUE, "land", "gulf")
+
 
 
 # GULF OF MEXICO DEPTH:

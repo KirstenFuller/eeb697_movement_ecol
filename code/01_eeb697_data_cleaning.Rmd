@@ -6,8 +6,6 @@ output:
   word_document: default
   html_document: default
 ---
-# Progress Report
-
 For my term project I will be exploring brown pelican movement data to answer the question: Are there individual differences in time spent over land vs. time spent over water for brown pelicans in the Gulf of Mexico?
 
 ## Set Working Directory
@@ -98,7 +96,6 @@ table(pel_dat_14$week, by = pel_dat_14$animal.id) # okay so 26, 27 and 28 look b
 
 pel_dat_14_wk20 <- pel_dat_14 %>%
   dplyr::filter(week == "20")
-
 ```
 
 I assessed the amount of data I had and over what time frame. 2014 had the most data at 18,861 points, so I filtered the data to that year. I then looked at the number of individuals in 2014 (there were 13 included in the study that year), and assessed which week of the study in 2014 included the most individuals. Weeks 20 and 21 looked about the same with 13 individuals included in both of them. Week 20 was ultimately selected for having slightly more data.
@@ -108,15 +105,15 @@ I assessed the amount of data I had and over what time frame. 2014 had the most 
 # explore the reference data a bit. 
 colnames(pel_dat_ref_dat)
 
+# select only the columns of interest
+pel_dat_ref_dat_sub <- pel_dat_ref_dat %>%
+  dplyr::select(animal.id, animal.sex)
+
 # How many males and females are included in the study?
-count(pel_dat_ref_dat$animal.sex) # 14 females and 16 males
+count(pel_dat_ref_dat_sub$animal.sex) # 14 females and 16 males
 
 # join the reference data to the week 20 data
-pel_dat_join <- left_join(pel_dat_14_wk20, pel_dat_ref_dat, by = "animal.id") 
-
-# remove unnecessary columns
-pel_dat_join_sub <- pel_dat_join %>%
-  dplyr::select(-c(animal.taxon, deploy.on.date, deploy.off.date, animal.life.stage, animal.reproductive.condition, animal.ring.id, attachment.type, deployment.id, manipulation.type, study.site, tag.manufacturer.name, tag.mass, tag.readout.method, tag.id, duty.cycle))
+pel_dat_join <- left_join(pel_dat_14_wk20, pel_dat_ref_dat_sub, by = "animal.id") 
 ```
 
 Next came the spatial defining of the data. 

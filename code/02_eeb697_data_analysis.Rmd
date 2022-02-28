@@ -4,3 +4,46 @@ output: html_document
 date: '2022-02-27'
 ---
 
+## Set Working Directory
+```{r setup, include=FALSE}
+rm( list = ls() ); gc( )
+
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "~/Documents/Boise_State/classes/eeb697_movement_ecol")
+```
+
+## Prepare Workspace
+```{r, include = FALSE, message = FALSE}
+# load necessary packages
+# define packages
+packages <- c("tidyverse", "dplyr", "tidyr", "gtools", "ggplot2", "lubridate", "reshape2", "plyr", "rgdal", "sp", "sf", "maptools", "raster", "amt", "FedData", "tiff", "terra", "rasterVis", "glmmTMB")
+
+# install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# load packages
+invisible(lapply(packages, library, character.only = TRUE))
+```
+
+## Load Objects
+```{r}
+# tracks:
+load(file = "data/output/tracks.RData")
+
+# gulf shape:
+load(file = "data/output/gulf_shp.RData")
+```
+
+## Analysis Prep
+```{r}
+# what proportion of our data are missing values
+sum(is.na(pel_tracks_test))/nrow(pel_tracks_test) 
+# 0.00097 
+
+# scale predictors - the only continuous predictor was the global marine fish value
+pel_tracks_test$global_marine_fish <- scale(pel_tracks_test$global_marine_fish)
+```
+

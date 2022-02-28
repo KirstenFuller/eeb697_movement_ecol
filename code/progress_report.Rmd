@@ -1,11 +1,5 @@
 ---
 title: "Untitled"
-output: html_document
-date: '2022-02-26'
----
-
----
-title: "Untitled"
 author: "Kirsten Fuller"
 date: "1/19/2022"
 output:
@@ -240,7 +234,6 @@ pel_tracks_test %>%
   ggplot(aes(sl, fill = factor(animal.id))) + 
   geom_density(alpha = 0.4)
 
-
 # NOT FUNCTIONING YET, COME BACK TO THIS
 # check autocorrelation in step length for each individual
 # for( i in 1:dim(pel_tracks_test)[1] ){
@@ -256,9 +249,12 @@ pel_tracks_test %>%
 #}
 ```
 
-
-# Data Analysis
+## Save Relevant Objects
 ```{r}
+# save tracks for analysis script
+save(pel_tracks_test, file = "data/output/tracks.RData")
 
+# save gom_shp_trans_crop
+save(gom_shp_trans_crop, file = "data/output/gulf_shp.RData")
 ```
 

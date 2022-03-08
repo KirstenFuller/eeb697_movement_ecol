@@ -117,7 +117,7 @@ pel_dat_join <- left_join(pel_dat_14_wk20, pel_dat_ref_dat_sub, by = "animal.id"
 Next came the spatial work.
 
 ## Spatial Defining
-```{r}
+```{r, messages = FALSE}
 # check if it has a defined coordinate system
 st_crs(pel_dat_join) # currently NA, but I know it should be WGS84 from the reference txt
 st_crs(gom_shp) # NAD27
@@ -150,13 +150,14 @@ gom_shp_trans_crop <- st_crop(gom_shp_trans, st_bbox(pel_dat_sf)) # note this is
 # spatial join
 pel_dat_sf <- st_join(pel_dat_sf, gom_shp_trans, left = TRUE)
 
-# replace NA values in the PROT_NAME column with land and replace values that aren't na with gulf
+# replace NA values in the PROT_NAME column with 0 and replace values that aren't na with 1
+# 0 represents land
+# 1 represents in the gulf
 pel_dat_sf$PROT_NAME <- ifelse(is.na(pel_dat_sf$PROT_NAME) == TRUE, "land", "gulf")
 
 # rename the PROT_NAME column to land_type
 pel_dat_sf <- pel_dat_sf %>%
   dplyr::rename(land_type = PROT_NAME)
-
 
 # species raster:
 # the goal here is to extract predictor data from the raster at the spatial points in the pelican dataframe. When possible, it is better to convert sf data to the crs of a raster, rather than transforming a raster to match the crs of a sf object. Here is the plan for that.
@@ -190,7 +191,6 @@ pel_final_df <- pel_dat_sf %>%
   dplyr::mutate(as.data.frame(st_coordinates(pel_dat_sf)))
 ```
 
-
 ## Defining Tracks and Exploring Data
 ```{r}
 # define the tracks
@@ -198,7 +198,9 @@ pel_tracks <- amt::make_track(pel_final_df, .x = X, .y = Y, .t = timestamp,
                               animal.id, day, animal.sex, land_type, global_marine_fish,
                               crs = 4326)
 
-# turn data into to an sf object for ggplotting purposes
+tracks_summary_tbl <- summarize_sampling_rate(pel_tracks)
+
+# turn tracks into to an sf object for ggplotting purposes
 pel_tracks_sf <- as_sf_points(pel_tracks)
 
 # plot all of the tracks together on top of the gulf shapefile
@@ -206,9 +208,6 @@ ggplot() +
   geom_sf(data = gom_shp_trans_crop, inherit.aes = FALSE ) +
   geom_sf(data = pel_tracks_sf, aes(col = as.factor(animal.id))) +
   theme(legend.position="none")
-
-# summarize the data
-amt::summarize_sampling_rate(pel_tracks)
 
 # turn into a tibble list by grouping and nesting by individual animals:
 pel_tracks_nested <- pel_tracks %>%  amt::nest(data = -"animal.id")
@@ -223,38 +222,51 @@ for( i in 1:dim(pel_tracks_nested)[1]){
   print(a)
 } 
 
+# create a burst for one individual
+x <- pel_tracks_nested$data[[1]]
+x %>% track_resample(rate = minutes(15), tolerance = minutes(10)) %>% steps_by_burst()
+
 # calculate step lengths
-pel_tracks_test <- pel_tracks %>%
-  dplyr::mutate(sl = step_lengths(.)) %>%
-  dplyr::mutate(direction_p = direction_rel(.))
+pel_tracks_steps <- pel_tracks_nested %>%
+  mutate(steps = map(data, function(x)
+    x %>% track_resample(rate = minutes(15), tolerance = minutes(10)) %>% steps_by_burst()))
+
+# check autocorrelation in step length for each individual
+for( i in 1:dim(pel_tracks_steps)[1] ){
+  # extract individual ids
+  idd <- pel_tracks_steps$animal.id[i]
+  # use tibbles we calculated in steps
+  x <- pull(pel_tracks_steps[["steps"]][[i]], sl_)
+  # remove missing data
+  x <- x[!is.na(x)]
+  # calculate autocorrelation function:
+  acf(x, lag.max = 300, main = paste0( "individual = ", idd ) )
+}
+
+pel_tracks_unnested <- pel_tracks_steps %>% unnest(cols = steps)
+
+class(pel_tracks_unnested)
+
+table(pel_tracks_unnested$animal.id) # I may need to remove 3511, there are only 71 points for this bird
 
 # plot step lengths
-pel_tracks_test %>% 
-  select(animal.id, sl) %>% 
-  ggplot(aes(sl, fill = factor(animal.id))) + 
+pel_tracks_steps %>% 
+  filter(!animal.id=="3511") %>% # I did need to remove it, it was throwin off the feng shui with a LOT more stationary points than any other animal
+  select(animal.id, steps) %>% 
+  unnest(cols = steps) %>%
+  ggplot(aes(sl_, fill = factor(animal.id))) + 
   geom_density(alpha = 0.4)
-
-# NOT FUNCTIONING YET, COME BACK TO THIS
-# check autocorrelation in step length for each individual
-# for( i in 1:dim(pel_tracks_test)[1] ){
-  # extract individual ids
-#  idd <- pel_tracks_test$animal.id[i]
-  # use tibbles we calculated in steps
-#  x <- pull(pel_tracks_test[["sl"]][[i]], direction_p)
-  # remove missing data
-#  x <- x[!is.na(x)]
-  # calculate autocorrelation function:
-#  acf( x, lag.max = 300,
- #      main = paste0( "individual = ", idd ) )
-#}
 ```
 
 ## Save Relevant Objects
 ```{r}
 # save tracks for analysis script
-save(pel_tracks_test, file = "data/output/tracks.RData")
+save(pel_tracks_steps, file = "data/output/tracks.RData")
 
 # save gom_shp_trans_crop
 save(gom_shp_trans_crop, file = "data/output/gulf_shp.RData")
+
+# save tracks
+write_rds(pel_tracks_steps, "pel_tracks_steps")
 ```
 

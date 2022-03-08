@@ -16,7 +16,7 @@ knitr::opts_knit$set(root.dir = "~/Documents/Boise_State/classes/eeb697_movement
 ```{r, include = FALSE, message = FALSE}
 # load necessary packages
 # define packages
-packages <- c("tidyverse", "dplyr", "tidyr", "gtools", "ggplot2", "lubridate", "reshape2", "plyr", "rgdal", "sp", "sf", "maptools", "raster", "amt", "FedData", "tiff", "terra", "rasterVis", "glmmTMB")
+packages <- c("tidyverse", "dplyr", "tidyr", "ggplot2", "lubridate", "plyr", "rgdal", "sp", "sf", "raster", "amt", "terra", "rasterVis", "glmmTMB")
 
 # install packages not yet installed
 installed_packages <- packages %in% rownames(installed.packages())
@@ -32,18 +32,42 @@ invisible(lapply(packages, library, character.only = TRUE))
 ```{r}
 # tracks:
 load(file = "data/output/tracks.RData")
+class(pel_tracks_steps) # it is still nested
+
+pel_data <- pel_tracks_steps %>%
+  unnest(cols = steps)
+
+class(pel_data) # steps_xyt is fine, right??
 
 # gulf shape:
 load(file = "data/output/gulf_shp.RData")
+
+# rasterize this:
+# create a  raster template
+r <- raster(ncols = 100, nrows = 50)
+# rasterize the shape file
+gom_rast <- rasterize()
 ```
 
 ## Analysis Prep
 ```{r}
 # what proportion of our data are missing values
-sum(is.na(pel_tracks_test))/nrow(pel_tracks_test) 
-# 0.00097 
+sum(is.na(pel_tracks_steps))/nrow(pel_tracks_steps) 
+# 0
 
-# scale predictors - the only continuous predictor was the global marine fish value
-pel_tracks_test$global_marine_fish <- scale(pel_tracks_test$global_marine_fish)
+# create control/random steps
+pel_data <- pel_data %>% random_steps(n_control = 15)
+
+# can I do it to the nested one?
+pel_data_nested_random <- pel_tracks_steps %>%
+  random_steps(n_control = 15) # no, it doesn't want a nested track
+
+colnames(pel_data)
+```
+
+## Analysis
+```{r}
+m1 <- pel_data %>%
+  mutate(la)
 ```
 

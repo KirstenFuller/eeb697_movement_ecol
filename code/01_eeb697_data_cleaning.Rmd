@@ -1,14 +1,17 @@
 ---
-title: "Untitled"
+title: "Movement Term Project"
 author: "Kirsten Fuller"
 date: "1/19/2022"
 output:
-  word_document: default
   html_document: default
+  pdf_document: default
+  word_document: default
 ---
-For my term project I will be exploring brown pelican movement data to answer the question: Are there individual differences in time spent over land vs. time spent over water for brown pelicans in the Gulf of Mexico?
+# Data Cleaning
 
-## Set Working Directory
+## Introduction
+For my term project I will be exploring brown pelican movement data in the Gulf of Mexico. Since this data is new to me, I am not positive which question I will be answering until I understand the data a little better. I am interested in either what factors are related to foraging, or potentially I am interested in looking into where each individual chooses to occupy, either mostly over the water or mostly over land. I plan to explore this data further to decide which question I will ultimately answer.
+
 ```{r setup, include=FALSE}
 rm( list = ls() ); gc( )
 
@@ -16,7 +19,6 @@ knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_knit$set(root.dir = "~/Documents/Boise_State/classes/eeb697_movement_ecol")
 ```
 
-## Prepare Workspace
 ```{r, include = FALSE, message = FALSE}
 # load necessary packages
 # define packages
@@ -32,7 +34,7 @@ if (any(installed_packages == FALSE)) {
 invisible(lapply(packages, library, character.only = TRUE))
 ```
 
-Data was acquired from various sources for this analysis. The brown pelican data was publicly available on Movebank.org (Geary B, Walter ST, Leberg PL, Karubian J (2018) Condition-dependent foraging strategies in a coastal seabird: evidence for the rich get richer hypothesis. Behavioral Ecology. doi:10.1093/beheco/ary173). 
+Data was acquired from various sources for this analysis. The brown pelican data was publicly available on Movebank.org (Geary B, Walter ST, Leberg PL, Karubian J (2018) Condition-dependent foraging strategies in a coastal seabird: evidence for the rich get richer hypothesis. Behavioral Ecology. doi:10.1093/beheco/ary173). I also acquired a Gulf of Mexico shapefile, and an oceanic species diversity raster. My thoughts here are that if I can link pelican locations with species diversity information, perhaps I can assess if foraging locations are linked with prey availability. 
 
 ## Load Data
 ```{r, message = FALSE}
@@ -49,9 +51,9 @@ gom_shp <- st_read("data/gulf_shp/gulf-of-mexico-protraction-polygons.shp")
 spec_div <- terra::rast("data/global_marine_fish.tif")
 ```
 
-Cleaning the data included exploring the data, removing unnecessary columns, defining the timestamps in the proper format and time zone, and joining tabular data together to make a data base for analysis.
-
 ## General Data Cleaning
+
+Cleaning the data included exploring the data, removing unnecessary columns, defining the timestamps in the proper format and time zone, and joining tabular data together to make a data base for analysis.
 ```{r}
 # PRIMARY DATA:
 # check column names of pelican data
@@ -96,7 +98,6 @@ pel_dat_14_wk20 <- pel_dat_14 %>%
 ```
 
 I assessed the amount of data I had and over what time frame. 2014 had the most data at 18,861 points, so I filtered the data to that year. I then looked at the number of individuals in 2014 (there were 13 included in the study that year), and assessed which week of the study in 2014 included the most individuals. Weeks 20 and 21 looked about the same with 13 individuals included in both of them. Week 20 was ultimately selected for having slightly more data.
-
 ```{r}
 # pelican reference data:
 colnames(pel_dat_ref_dat)
@@ -114,9 +115,8 @@ pel_dat_join <- left_join(pel_dat_14_wk20, pel_dat_ref_dat_sub, by = "animal.id"
   dplyr::select(-event.id)
 ```
 
-Next came the spatial work.
-
 ## Spatial Defining
+Next came the spatial work. Most of the spatial packages will want my data in sp, but I know how to do a lot of the spatial manipulations in sf. So I am going to work with the data in sf first, and then convert it to sp when I need to. 
 ```{r, messages = FALSE}
 # check if it has a defined coordinate system
 st_crs(pel_dat_join) # currently NA, but I know it should be WGS84 from the reference txt
@@ -124,7 +124,8 @@ st_crs(gom_shp) # NAD27
 st_crs(spec_div) # World_Eckert_IV 
 
 # define the coordinate reference system of the pelican data
-# the READ_ME file says the pelican data is WGS84, so I will have to define the crs as an object.The EPSG code for that is 4326
+# the READ_ME file says the pelican data is WGS84, so I will have to define the crs as an object.
+# the EPSG code for that is 4326
 pel_crs = "EPSG:4326"
 
 # then assign the pelican data to that crs
@@ -191,16 +192,31 @@ pel_final_df <- pel_dat_sf %>%
   dplyr::mutate(as.data.frame(st_coordinates(pel_dat_sf)))
 ```
 
+## Plot Predictors
+Create histograms of predictor variables.
+```{r}
+ggplot(pel_final_df, aes(x = global_marine_fish)) +
+  theme_classic(base_size = 15) +
+  geom_histogram() 
+
+ggplot(pel_final_df, aes(x = land_type)) +
+  stat_count()
+```
+
+Haha, there seems to be only three distinct numbers of fish diversity. I think I will not use this as a predictor after all. Oh well.
+
+Other thoughts: hmm I'm surprised there are more points on land than over water! 
+
 ## Defining Tracks and Exploring Data
 ```{r}
 # define the tracks
-pel_tracks <- amt::make_track(pel_final_df, .x = X, .y = Y, .t = timestamp,
-                              animal.id, day, animal.sex, land_type, global_marine_fish,
-                              crs = 4326)
+pel_tracks <- pel_final_df %>%
+  amt::make_track(.x = X, .y = Y, .t = timestamp,
+                  animal.id, day, animal.sex, land_type, global_marine_fish,
+                  crs = 4326)
+class(pel_tracks) # track_xyt
 
-tracks_summary_tbl <- summarize_sampling_rate(pel_tracks)
-
-# turn tracks into to an sf object for ggplotting purposes
+# turn tracks into to an sf object for ggplotting
 pel_tracks_sf <- as_sf_points(pel_tracks)
 
 # plot all of the tracks together on top of the gulf shapefile
@@ -210,7 +226,7 @@ ggplot() +
   theme(legend.position="none")
 
 # turn into a tibble list by grouping and nesting by individual animals:
-pel_tracks_nested <- pel_tracks %>%  amt::nest(data = -"animal.id")
+pel_tracks_nested <- pel_tracks %>% amt::nest(data = -"animal.id")
 
 # plot each individual's track
 for( i in 1:dim(pel_tracks_nested)[1]){
@@ -222,14 +238,22 @@ for( i in 1:dim(pel_tracks_nested)[1]){
   print(a)
 } 
 
-# create a burst for one individual
-x <- pel_tracks_nested$data[[1]]
-x %>% track_resample(rate = minutes(15), tolerance = minutes(10)) %>% steps_by_burst()
+# summarize tracks by individual
+sumtrks <- pel_tracks_nested %>%
+  summarize(map(data, amt::summarize_sampling_rate))
+sumtrks[[1]] # about 15 min is the median, the mean is much higher but that is because of the maximum values. I am going to re sample at 15 min, with a 5 minute tolerance.
 
 # calculate step lengths
 pel_tracks_steps <- pel_tracks_nested %>%
   mutate(steps = map(data, function(x)
-    x %>% track_resample(rate = minutes(15), tolerance = minutes(10)) %>% steps_by_burst()))
+    x %>% track_resample(rate = minutes(15), tolerance = minutes(5)) %>% steps_by_burst()))
+
+class(pel_tracks_steps)
+
+pel_tracks_steps[[2]]
+
+# plot autocorrelation for step lengths for all individuals
+par( mfrow = c( 2,3 ) )
 
 # check autocorrelation in step length for each individual
 for( i in 1:dim(pel_tracks_steps)[1] ){
@@ -243,30 +267,51 @@ for( i in 1:dim(pel_tracks_steps)[1] ){
   acf(x, lag.max = 300, main = paste0( "individual = ", idd ) )
 }
 
-pel_tracks_unnested <- pel_tracks_steps %>% unnest(cols = steps)
-
-class(pel_tracks_unnested)
-
-table(pel_tracks_unnested$animal.id) # I may need to remove 3511, there are only 71 points for this bird
+# resample at a higher sampling rate to remove autocorrelation
+pel_tracks_steps <- pel_tracks_steps %>%
+  mutate(
+    red = map(data, function( x ) x %>%  
+              track_resample( rate = minutes(60),
+              tolerance = minutes(10))),
+    thin.steps = map(data, function(x) x %>% 
+                       track_resample(rate = minutes(60), tolerance = minutes(10)) %>% 
+                       steps_by_burst()))
+class(pel_tracks_steps)
 
 # plot step lengths
 pel_tracks_steps %>% 
-  filter(!animal.id=="3511") %>% # I did need to remove it, it was throwin off the feng shui with a LOT more stationary points than any other animal
   select(animal.id, steps) %>% 
   unnest(cols = steps) %>%
   ggplot(aes(sl_, fill = factor(animal.id))) + 
   geom_density(alpha = 0.4)
+
+# subset steps
+pel_tracks_final <- pel_tracks_steps %>% 
+  select(animal.id, steps) %>%
+  unnest(cols = steps)
+
+class(pel_tracks_final)
+
+# subset thinned data
+pel_tracks_thin <- pel_tracks_steps %>%
+  select(animal.id, red) %>%
+  unnest(cols = red)
+
+class(pel_tracks_thin)
 ```
+
+## Updated Ecological Question
+How do brown pelicans home ranges vary by home range estimation method?
 
 ## Save Relevant Objects
 ```{r}
-# save tracks for analysis script
-save(pel_tracks_steps, file = "data/output/tracks.RData")
+# save actual track data
+write_rds(pel_tracks_final, "data/output/pel_tracks_final")
+
+write_rds(pel_tracks_thin, "data/output/pel_tracks_thin")
+
+write_rds(pel_tracks, "data/output/pel_tracks_xyt")
 
 # save gom_shp_trans_crop
-save(gom_shp_trans_crop, file = "data/output/gulf_shp.RData")
-
-# save tracks
-write_rds(pel_tracks_steps, "pel_tracks_steps")
+st_write(gom_shp_trans_crop, "data/output/gulf_shp_crop.shp")
 ```
-

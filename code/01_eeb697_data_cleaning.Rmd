@@ -245,22 +245,25 @@ sumtrks[[1]] # about 15 min is the median, the mean is much higher but that is b
 
 # calculate step lengths
 pel_tracks_steps <- pel_tracks_nested %>%
-  mutate(steps = map(data, function(x)
-    x %>% track_resample(rate = minutes(15), tolerance = minutes(5)) %>% steps_by_burst()))
+  mutate(
+    steps = map(data, function(x) x %>% 
+                  track_resample(rate = minutes(15), tolerance = minutes(5))),
+    steps.bb = map(data, function(x) x %>% 
+                     track_resample(rate = minutes(15), tolerance = minutes(5)) %>%
+                     steps_by_burst()))
 
 class(pel_tracks_steps)
-
 pel_tracks_steps[[2]]
 
 # plot autocorrelation for step lengths for all individuals
 par( mfrow = c( 2,3 ) )
 
-# check autocorrelation in step length for each individual
+# check autocorrelation in step length for each individual using steps by burst nested data
 for( i in 1:dim(pel_tracks_steps)[1] ){
   # extract individual ids
   idd <- pel_tracks_steps$animal.id[i]
   # use tibbles we calculated in steps
-  x <- pull(pel_tracks_steps[["steps"]][[i]], sl_)
+  x <- pull(pel_tracks_steps[["steps.bb"]][[i]], sl_)
   # remove missing data
   x <- x[!is.na(x)]
   # calculate autocorrelation function:
@@ -280,8 +283,8 @@ class(pel_tracks_steps)
 
 # plot step lengths
 pel_tracks_steps %>% 
-  select(animal.id, steps) %>% 
-  unnest(cols = steps) %>%
+  select(animal.id, steps.bb) %>% 
+  unnest(cols = steps.bb) %>%
   ggplot(aes(sl_, fill = factor(animal.id))) + 
   geom_density(alpha = 0.4)
 
